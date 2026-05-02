@@ -2,7 +2,7 @@
 // components/DashboardClient.tsx
 // The main orchestrator for the entire dashboard UI
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { MetricsSummary } from '@/lib/metrics';
 import type { InsightReport } from '@/lib/insights';
 import { getAllMetrics } from '@/lib/metrics';
@@ -27,8 +27,14 @@ interface Props {
 }
 
 export default function DashboardClient({ developer, initialMetrics, initialInsights, recentActivity }: Props) {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [activeTab, setActiveTab] = useState<'overview' | 'insights' | 'active'>('overview');
+  
+  // Ensure the dark class is correctly applied on mount
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
+
 
   const defaultEnd = useMemo(() => new Date().toISOString().split('T')[0], []);
   const defaultStart = useMemo(() => {
