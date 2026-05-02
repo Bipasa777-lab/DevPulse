@@ -209,40 +209,6 @@ In production, you'd layer an LLM on top to generate natural language summaries 
 
 ---
 
-## 💼 7. Interview Q&A
-
-### Q1: Why only 5 metrics?
-**A:** These are the DORA (DevOps Research & Assessment) industry-standard metrics validated across thousands of engineering teams. They cover the complete delivery lifecycle: speed (lead time, cycle time), throughput (PR throughput, deploy frequency), and quality (bug rate). Adding more metrics without action paths creates noise. MVP principle: fewer, deeper metrics beat many shallow ones.
-
-### Q2: How would you handle real data instead of mocks?
-**A:** The architecture is already designed for this. `mockData.ts` is the only file that changes. In production: (1) Jira API for issues with `created`, `started`, `done` timestamps; (2) GitHub/GitLab API for PR open/merge times; (3) CI/CD webhooks (GitHub Actions, Jenkins) to record deployment events in a Postgres table. The `lib/metrics.ts` calculations remain identical — only the data source swaps.
-
-### Q3: How does the insight engine scale?
-**A:** The current rule engine has O(n) complexity on number of rules — fast and cheap. To scale: (1) Add more rules as patterns emerge from user feedback; (2) Layer a probabilistic model that weights rule confidence; (3) In production, pass rule outputs + metric values to an LLM with a structured prompt to generate personalized narratives. The rules provide the signal; the LLM provides the language.
-
-### Q4: How would you make this multi-user / team view?
-**A:** Currently scoped to one IC. To extend: (1) Add a `developerId` param to all API routes; (2) A team dashboard aggregates individual metrics with `avg()` and `p75()`; (3) Anonymize individual metrics for managers to preserve psychological safety. The data model already has `DEVELOPER.id` as the key — it just needs a developer registry.
-
-### Q5: How do you prevent metric gaming?
-**A:** Great question. Metrics can be gamed: e.g., a dev closes tickets prematurely to lower cycle time. Mitigations: (1) Combine multiple metrics — you can't simultaneously game lead time, bug rate, AND deployment frequency; (2) Track reversal rates (bugs re-opened, rollbacks); (3) Make metrics a conversation tool, not a performance review input. The dashboard frames metrics as "how can I improve?" not "am I being watched?"
-
-### Q6: Why Next.js App Router vs Pages Router?
-**A:** App Router enables React Server Components, which means metric calculations run on the server — zero client-side JS for data fetching. The dashboard page is a server component that pre-computes metrics and passes serialized data to client components. This gives better performance (no loading spinners) and keeps sensitive business logic server-side.
-
-### Q7: How would you test this application?
-**A:** Three layers: (1) **Unit tests** for `lib/metrics.ts` and `lib/insights.ts` — pure functions with deterministic outputs, easy to test with Jest; (2) **Component tests** using React Testing Library for MetricCard render states (good/warning/critical); (3) **E2E tests** with Playwright to assert the dashboard renders correct values for given mock data. The separation of data (mockData.ts), calculation (metrics.ts), and UI makes each layer independently testable.
-
-### Q8: What's missing for production readiness?
-**A:** (1) **Auth** — NextAuth.js with GitHub OAuth to identify the developer; (2) **Database** — Postgres with Prisma ORM to store historical snapshots for trend calculation; (3) **Caching** — Redis or Next.js `unstable_cache` to avoid recomputing metrics on every request; (4) **Error boundaries** — graceful degradation when Jira/GitHub APIs are down; (5) **Data refresh** — a cron job or webhook that re-fetches metrics every 15 minutes; (6) **Mobile responsiveness** — current grid collapses but needs testing.
-
-### Q9: How do you calculate lead time accurately when tickets span multiple states?
-**A:** The current implementation uses `createdAt` → `deployedAt` as the full lead time. A more accurate model uses state transition logs: `sum(time_in_state)` for each state (backlog, in-progress, code review, QA, deploy). This requires tracking state-change events, not just timestamps. For MVP, the simplified model is sufficient and explains the concept. In production, I'd add a `StateTransition` table with `(issueId, fromState, toState, timestamp)` and sum the in-progress durations.
-
-### Q10: Why is Cycle Time different from Lead Time?
-**A:** Lead time is a **business metric** — it answers "how long does a user's request take to reach them?" It includes everything: waiting in backlog, design, planning. Cycle time is an **engineering metric** — it answers "how fast does Alex code and ship?" It starts when the developer picks up work. Both matter: high lead time with low cycle time means the bottleneck is upstream (requirements, prioritization), not the developer. High cycle time means the developer's process needs improvement. Together, they pinpoint where in the system the slowdown lives.
-
----
-
 ## 📋 Key Design Decisions Log
 
 | Decision | Alternative | Why This |

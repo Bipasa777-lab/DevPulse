@@ -14,6 +14,7 @@ interface ActivityItem {
 interface Props {
   activities: ActivityItem[];
   expanded?: boolean;
+  onTabChange?: (tab: 'overview' | 'insights' | 'active') => void;
 }
 
 const statusConfig = {
@@ -22,7 +23,7 @@ const statusConfig = {
   'rolled-back': { icon: '↩️', label: 'Rolled back', color: 'var(--accent-amber)', bg: 'var(--accent-amber-light)' },
 };
 
-export default function ActivityFeed({ activities, expanded = false }: Props) {
+export default function ActivityFeed({ activities, expanded = false, onTabChange }: Props) {
   const items = expanded ? activities : activities.slice(0, 5);
 
   return (
@@ -130,10 +131,11 @@ export default function ActivityFeed({ activities, expanded = false }: Props) {
 
       {!expanded && activities.length > 5 && (
         <div
-          className="mt-3 pt-3 text-center text-xs"
+          className="mt-3 pt-3 text-center text-xs cursor-pointer hover:underline"
           style={{ borderTop: '1px solid var(--border)', color: 'var(--text-tertiary)' }}
+          onClick={() => onTabChange?.('active')}
         >
-          +{activities.length - 5} more in Activity tab
+          +{activities.length - 5} more in Active tab
         </div>
       )}
     </div>

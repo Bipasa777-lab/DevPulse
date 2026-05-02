@@ -11,7 +11,6 @@ export default function DashboardPage() {
 
   const recentActivity = DEPLOYMENTS
     .sort((a, b) => b.deployedAt.localeCompare(a.deployedAt))
-    .slice(0, 5)
     .map(dep => {
       const pr = PULL_REQUESTS.find(p => p.id === dep.prId);
       const issue = ISSUES.find(i => i.id === dep.issueId);
@@ -21,8 +20,8 @@ export default function DashboardPage() {
   return (
     <DashboardClient
       developer={DEVELOPER}
-      metrics={metrics}
-      insights={insights}
+      initialMetrics={metrics}
+      initialInsights={insights}
       recentActivity={recentActivity}
     />
   );

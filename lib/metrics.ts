@@ -46,32 +46,49 @@ const trendPct = (current: number, prev: number) =>
 
 // ─── 1. LEAD TIME FOR CHANGES ────────────────────────────────────────────────
 // Definition: Time from ticket CREATED to DEPLOYED to production
-// This measures the full value-delivery pipeline, not just coding
-export function calcLeadTime(): MetricResult {
-  const times = ISSUES.map(i => daysBetween(i.createdAt, i.deployedAt));
+export function calcLeadTime(startDate?: string, endDate?: string): MetricResult {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
+
+  const filteredIssues = ISSUES.filter(i => {
+    if (!i.deployedAt) return false;
+    const dDate = new Date(i.deployedAt);
+    return (!start || dDate >= start) && (!end || dDate <= end);
+  });
+
+  const times = filteredIssues.map(i => daysBetween(i.createdAt, i.deployedAt));
   const avg = parseFloat(mean(times).toFixed(1));
 
-  // Industry benchmarks (DORA): Elite < 1 day, High < 1 week, Medium < 1 month
   const status: Status = avg <= 3 ? 'good' : avg <= 7 ? 'warning' : 'critical';
-  const trend: Trend = avg < 6 ? 'down' : avg > 8 ? 'up' : 'stable'; // down = improving
+  const trend: Trend = avg < 6 ? 'down' : avg > 8 ? 'up' : 'stable';
 
   return {
     value: avg,
     unit: 'days',
     label: 'Lead Time for Changes',
     trend,
-    trendValue: -8,  // 8% improvement vs prior 30 days
+    trendValue: -8,
     status,
     weeklyData: WEEKLY_TRENDS.leadTime,
-    details: `Avg across ${times.length} issues. Range: ${Math.min(...times)}–${Math.max(...times)} days`,
+    details: `Avg across ${times.length} issues in range. Range: ${times.length ? Math.min(...times) : 0}–${times.length ? Math.max(...times) : 0} days`,
   };
 }
 
 // ─── 2. CYCLE TIME ───────────────────────────────────────────────────────────
 // Definition: Time from first commit / ticket STARTED to MERGED
-// Measures pure development + review efficiency
-export function calcCycleTime(): MetricResult {
-  const times = ISSUES.map(i => daysBetween(i.startedAt, i.completedAt));
+export function calcCycleTime(startDate?: string, endDate?: string): MetricResult {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
+
+  const filteredIssues = ISSUES.filter(i => {
+    if (!i.completedAt) return false;
+    const cDate = new Date(i.completedAt);
+    return (!start || cDate >= start) && (!end || cDate <= end);
+  });
+
+  const times = filteredIssues.map(i => daysBetween(i.startedAt, i.completedAt));
   const avg = parseFloat(mean(times).toFixed(1));
 
   const status: Status = avg <= 2 ? 'good' : avg <= 4 ? 'warning' : 'critical';
@@ -85,19 +102,26 @@ export function calcCycleTime(): MetricResult {
     trendValue: -3,
     status,
     weeklyData: WEEKLY_TRENDS.cycleTime,
-    details: `Avg time from "in-progress" to "done". Range: ${Math.min(...times)}–${Math.max(...times)} days`,
+    details: `Avg time for ${times.length} issues. Range: ${times.length ? Math.min(...times) : 0}–${times.length ? Math.max(...times) : 0} days`,
   };
 }
 
 // ─── 3. BUG RATE ─────────────────────────────────────────────────────────────
-// Definition: Bugs as % of total issues worked on
-// High bug rate signals insufficient testing, rushed delivery, or unclear specs
-export function calcBugRate(): MetricResult {
-  const bugs = ISSUES.filter(i => i.type === 'bug').length;
-  const total = ISSUES.length;
-  const rate = parseFloat(((bugs / total) * 100).toFixed(1));
+// Definition: Bugs as % of total issues created in range
+export function calcBugRate(startDate?: string, endDate?: string): MetricResult {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
 
-  // Target: < 20% for a healthy individual contributor
+  const filtered = ISSUES.filter(i => {
+    const cDate = new Date(i.createdAt);
+    return (!start || cDate >= start) && (!end || cDate <= end);
+  });
+
+  const bugs = filtered.filter(i => i.type === 'bug').length;
+  const total = filtered.length;
+  const rate = total === 0 ? 0 : parseFloat(((bugs / total) * 100).toFixed(1));
+
   const status: Status = rate < 20 ? 'good' : rate < 35 ? 'warning' : 'critical';
   const trend: Trend = rate > 30 ? 'up' : 'stable';
 
@@ -106,22 +130,32 @@ export function calcBugRate(): MetricResult {
     unit: '%',
     label: 'Bug Rate',
     trend,
-    trendValue: 5,   // 5% worse vs prior period
+    trendValue: 5,
     status,
     weeklyData: WEEKLY_TRENDS.bugRate,
-    details: `${bugs} bugs out of ${total} total issues in last 30 days`,
+    details: `${bugs} bugs out of ${total} total issues in selected range`,
   };
 }
 
 // ─── 4. DEPLOYMENT FREQUENCY ─────────────────────────────────────────────────
-// Definition: Average production deployments per week
-// Higher is better — correlates with smaller batch sizes and faster feedback
-export function calcDeploymentFrequency(): MetricResult {
-  const prodDeps = DEPLOYMENTS.filter(d => d.environment === 'production' && d.status === 'success');
-  const weeks = 4; // 30-day window
-  const perWeek = parseFloat((prodDeps.length / weeks).toFixed(1));
+export function calcDeploymentFrequency(startDate?: string, endDate?: string): MetricResult {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
 
-  // DORA: Elite ≥ 1/day, High ≥ 1/week, Medium ≥ 1/month
+  const prodDeps = DEPLOYMENTS.filter(d => {
+    const dDate = new Date(d.deployedAt);
+    return d.environment === 'production' && d.status === 'success' && 
+           (!start || dDate >= start) && (!end || dDate <= end);
+  });
+
+  let weeks = 4;
+  if (start && end) {
+    const diff = Math.max(1, differenceInDays(end, start));
+    weeks = diff / 7;
+  }
+  
+  const perWeek = parseFloat((prodDeps.length / weeks).toFixed(1));
   const status: Status = perWeek >= 3 ? 'good' : perWeek >= 1 ? 'warning' : 'critical';
   const trend: Trend = 'stable';
 
@@ -133,18 +167,29 @@ export function calcDeploymentFrequency(): MetricResult {
     trendValue: 10,
     status,
     weeklyData: WEEKLY_TRENDS.deployFrequency,
-    details: `${prodDeps.length} successful prod deployments over 4 weeks (${DEPLOYMENTS.filter(d=>d.status==='failed').length} failed)`,
+    details: `${prodDeps.length} successful prod deployments over ${weeks.toFixed(1)} weeks`,
   };
 }
 
 // ─── 5. PR THROUGHPUT ────────────────────────────────────────────────────────
-// Definition: Number of PRs merged per week
-// Measures output velocity and WIP discipline
-export function calcPRThroughput(): MetricResult {
-  const merged = PULL_REQUESTS.filter(pr => pr.mergedAt !== null);
-  const weeks = 4;
-  const perWeek = parseFloat((merged.length / weeks).toFixed(1));
+export function calcPRThroughput(startDate?: string, endDate?: string): MetricResult {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
 
+  const merged = PULL_REQUESTS.filter(pr => {
+    if (!pr.mergedAt) return false;
+    const mDate = new Date(pr.mergedAt);
+    return (!start || mDate >= start) && (!end || mDate <= end);
+  });
+
+  let weeks = 4;
+  if (start && end) {
+    const diff = Math.max(1, differenceInDays(end, start));
+    weeks = diff / 7;
+  }
+
+  const perWeek = parseFloat((merged.length / weeks).toFixed(1));
   const avgComments = parseFloat(mean(merged.map(p => p.comments)).toFixed(1));
 
   const status: Status = perWeek >= 3 ? 'good' : perWeek >= 2 ? 'warning' : 'critical';
@@ -158,24 +203,42 @@ export function calcPRThroughput(): MetricResult {
     trendValue: 0,
     status,
     weeklyData: WEEKLY_TRENDS.prThroughput,
-    details: `${merged.length} PRs merged in 4 weeks. Avg ${avgComments} review comments/PR`,
+    details: `${merged.length} PRs merged over ${weeks.toFixed(1)} weeks. Avg ${avgComments} comments/PR`,
   };
 }
 
 // ─── AGGREGATED ENTRY POINT ───────────────────────────────────────────────────
-export function getAllMetrics(): MetricsSummary {
+export function getAllMetrics(startDate?: string, endDate?: string): MetricsSummary {
+  const start = startDate ? new Date(startDate) : null;
+  const end = endDate ? new Date(endDate) : null;
+  if (end) end.setHours(23, 59, 59, 999);
+
+  const fIssues = ISSUES.filter(i => {
+    const cDate = new Date(i.createdAt);
+    return (!start || cDate >= start) && (!end || cDate <= end);
+  });
+  const fPRs = PULL_REQUESTS.filter(pr => {
+    if (!pr.mergedAt) return false;
+    const mDate = new Date(pr.mergedAt);
+    return (!start || mDate >= start) && (!end || mDate <= end);
+  });
+  const fDeps = DEPLOYMENTS.filter(d => {
+    const dDate = new Date(d.deployedAt);
+    return (!start || dDate >= start) && (!end || dDate <= end);
+  });
+
   return {
-    leadTime: calcLeadTime(),
-    cycleTime: calcCycleTime(),
-    bugRate: calcBugRate(),
-    deploymentFrequency: calcDeploymentFrequency(),
-    prThroughput: calcPRThroughput(),
+    leadTime: calcLeadTime(startDate, endDate),
+    cycleTime: calcCycleTime(startDate, endDate),
+    bugRate: calcBugRate(startDate, endDate),
+    deploymentFrequency: calcDeploymentFrequency(startDate, endDate),
+    prThroughput: calcPRThroughput(startDate, endDate),
     raw: {
-      totalIssues: ISSUES.length,
-      totalBugs: ISSUES.filter(i => i.type === 'bug').length,
-      totalPRs: PULL_REQUESTS.length,
-      totalDeployments: DEPLOYMENTS.length,
-      mergedPRs: PULL_REQUESTS.filter(p => p.mergedAt).length,
+      totalIssues: fIssues.length,
+      totalBugs: fIssues.filter(i => i.type === 'bug').length,
+      totalPRs: fPRs.length,
+      totalDeployments: fDeps.length,
+      mergedPRs: fPRs.filter(p => p.mergedAt).length,
     },
   };
 }

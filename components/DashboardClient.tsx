@@ -2,9 +2,11 @@
 // components/DashboardClient.tsx
 // The main orchestrator for the entire dashboard UI
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { MetricsSummary } from '@/lib/metrics';
 import type { InsightReport } from '@/lib/insights';
+import { getAllMetrics } from '@/lib/metrics';
+import { generateInsights } from '@/lib/insights';
 import Header from './ui/Header';
 import DeveloperProfile from './ui/DeveloperProfile';
 import MetricCard from './ui/MetricCard';
@@ -16,17 +18,52 @@ import SparkChart from './charts/SparkChart';
 
 interface Props {
   developer: { id: string; name: string; role: string; team: string; avatar: string; joinDate: string };
-  metrics: MetricsSummary;
-  insights: InsightReport;
+  initialMetrics: MetricsSummary;
+  initialInsights: InsightReport;
   recentActivity: Array<{
     id: string; issueId: string; prId: string; deployedAt: string;
     environment: string; status: string; prTitle: string; issueTitle: string;
   }>;
 }
 
-export default function DashboardClient({ developer, metrics, insights, recentActivity }: Props) {
+export default function DashboardClient({ developer, initialMetrics, initialInsights, recentActivity }: Props) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [activeTab, setActiveTab] = useState<'overview' | 'insights' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'insights' | 'active'>('overview');
+
+  const defaultEnd = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const defaultStart = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 17);
+    return d.toISOString().split('T')[0];
+  }, []);
+
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
+
+  // Re-calculate metrics and insights when dates change
+  const metrics = useMemo(() => {
+    // If dates are at default, we can use initialMetrics to avoid unnecessary re-calc
+    if (startDate === defaultStart && endDate === defaultEnd) return initialMetrics;
+    return getAllMetrics(startDate, endDate);
+  }, [startDate, endDate, initialMetrics, defaultStart, defaultEnd]);
+
+  const insights = useMemo(() => {
+    if (metrics === initialMetrics) return initialInsights;
+    return generateInsights(metrics);
+  }, [metrics, initialInsights, initialMetrics]);
+
+  // Filter activity based on selected date range
+  const filteredActivity = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    // Set end of day for the end date to be inclusive
+    end.setHours(23, 59, 59, 999);
+    
+    return recentActivity.filter(activity => {
+      const deployDate = new Date(activity.deployedAt);
+      return deployDate >= start && deployDate <= end;
+    });
+  }, [recentActivity, startDate, endDate]);
 
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
@@ -77,7 +114,15 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
       className="min-h-screen transition-colors duration-300"
       style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
     >
-      <Header theme={theme} onToggleTheme={toggleTheme} developer={developer} />
+      <Header 
+        theme={theme} 
+        onToggleTheme={toggleTheme} 
+        developer={developer} 
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
@@ -92,7 +137,7 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
           className="flex gap-1 mb-6 p-1 rounded-xl inline-flex"
           style={{ backgroundColor: 'var(--bg-surface-2)', border: '1px solid var(--border)' }}
         >
-          {(['overview', 'insights', 'activity'] as const).map(tab => (
+          {(['overview', 'insights', 'active'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -103,7 +148,7 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
                 boxShadow: activeTab === tab ? 'var(--shadow-sm)' : 'none',
               }}
             >
-              {tab === 'overview' ? '📊 Overview' : tab === 'insights' ? '🔍 Insights' : '📋 Activity'}
+              {tab === 'overview' ? '📊 Overview' : tab === 'insights' ? '🔍 Insights' : '📋 Active'}
             </button>
           ))}
         </div>
@@ -155,8 +200,8 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
 
             {/* Bottom Row: Actions + Activity */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ActionPanel actions={insights.actions} />
-              <ActivityFeed activities={recentActivity} />
+              <ActionPanel actions={insights.actions} onTabChange={setActiveTab} />
+              <ActivityFeed activities={filteredActivity} onTabChange={setActiveTab} />
             </div>
           </div>
         )}
@@ -169,9 +214,9 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
           </div>
         )}
 
-        {/* ── Activity Tab ── */}
-        {activeTab === 'activity' && (
-          <ActivityFeed activities={recentActivity} expanded />
+        {/* ── Active Tab ── */}
+        {activeTab === 'active' && (
+          <ActivityFeed activities={filteredActivity} expanded />
         )}
       </main>
 
@@ -183,7 +228,7 @@ export default function DashboardClient({ developer, metrics, insights, recentAc
         {' · '}
         Last refreshed: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         {' · '}
-        30-day window
+        Selected date window
       </footer>
     </div>
   );

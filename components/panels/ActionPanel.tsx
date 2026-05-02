@@ -5,6 +5,7 @@ import type { Action } from '@/lib/insights';
 interface Props {
   actions: Action[];
   expanded?: boolean;
+  onTabChange?: (tab: 'overview' | 'insights' | 'active') => void;
 }
 
 const effortColors = {
@@ -25,7 +26,7 @@ const categoryIcon = {
   collaboration: '🤝',
 };
 
-export default function ActionPanel({ actions, expanded = false }: Props) {
+export default function ActionPanel({ actions, expanded = false, onTabChange }: Props) {
   const displayActions = expanded ? actions : actions.slice(0, 2);
 
   return (
@@ -115,7 +116,11 @@ export default function ActionPanel({ actions, expanded = false }: Props) {
       </div>
 
       {!expanded && actions.length > 2 && (
-        <p className="text-xs text-center mt-3" style={{ color: 'var(--text-tertiary)' }}>
+        <p 
+          className="text-xs text-center mt-3 cursor-pointer hover:underline" 
+          style={{ color: 'var(--text-tertiary)' }}
+          onClick={() => onTabChange?.('insights')}
+        >
           + {actions.length - 2} more actions in Insights tab
         </p>
       )}

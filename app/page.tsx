@@ -35,10 +35,6 @@ export default function LandingPage() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#7161EF]/5 rounded-full blur-[100px] -z-10" />
         
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A1A1A] border border-white/5 text-sm text-neutral-400 mb-8">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500"></span>
-            DevPulse v2.0 is now live
-          </div>
           <h1 className="text-5xl lg:text-7xl font-semibold tracking-tight mb-8 leading-[1.1] text-white">
             Monitor your systems with <br className="hidden lg:block" />
             <span className="text-neutral-400">

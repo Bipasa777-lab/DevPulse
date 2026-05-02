@@ -142,6 +142,16 @@ export function generateInsights(m: MetricsSummary): InsightReport {
       category: 'technical',
       linkedMetrics: ['Deployment Frequency', 'Lead Time'],
     });
+    actions.push({
+      id: 'ACT-004B',
+      title: 'Automate manual testing steps',
+      description:
+        'If deployments are delayed by manual QA, look into automating the most common critical paths with Playwright or Cypress to build confidence in faster releases.',
+      effort: 'high',
+      impact: 'high',
+      category: 'technical',
+      linkedMetrics: ['Deployment Frequency'],
+    });
   }
 
   // ── Rule 5: Good deployment + High Bug Rate → Ship fast, break things
@@ -155,7 +165,28 @@ export function generateInsights(m: MetricsSummary): InsightReport {
       metric: 'Deployment Frequency + Bug Rate',
       icon: '⚡',
     });
+    actions.push({
+      id: 'ACT-005',
+      title: 'Implement pre-commit hooks for linting & tests',
+      description:
+        'Add Husky to run basic unit tests and linters before allowing a commit. Catching basic errors locally speeds up the PR pipeline and reduces obvious bugs.',
+      effort: 'low',
+      impact: 'medium',
+      category: 'technical',
+      linkedMetrics: ['Bug Rate'],
+    });
   }
+
+  // ── Rule 6: General Tech Debt Action (Always applied to ensure rich suggestions)
+  actions.push({
+    id: 'ACT-GEN-01',
+    title: 'Schedule a tech debt Friday',
+    description: 'Dedicate the last 2 hours of every Friday to refactoring messy components, updating dependencies, or writing missing tests. Consistent small investments compound over time.',
+    effort: 'low',
+    impact: 'medium',
+    category: 'process',
+    linkedMetrics: ['Cycle Time', 'Bug Rate'],
+  });
 
   // ── Rule 6: Everything looks good
   if (insights.length === 0) {

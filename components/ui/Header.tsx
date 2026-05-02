@@ -1,14 +1,46 @@
 'use client';
 // components/ui/Header.tsx
+import { useState, useMemo, useEffect } from 'react';
 import { Sun, Moon, Bell, Settings } from 'lucide-react';
 
 interface Props {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   developer: { name: string; role: string; avatar: string };
+  startDate: string;
+  endDate: string;
+  onStartDateChange: (val: string) => void;
+  onEndDateChange: (val: string) => void;
 }
 
-export default function Header({ theme, onToggleTheme, developer }: Props) {
+export default function Header({ 
+  theme, 
+  onToggleTheme, 
+  developer,
+  startDate,
+  endDate,
+  onStartDateChange,
+  onEndDateChange
+}: Props) {
+  
+  
+  // Real-time clock state
+  const [mounted, setMounted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    setMounted(true);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const daysDifference = useMemo(() => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }, [startDate, endDate]);
+
   return (
     <header
       className="sticky top-0 z-50 backdrop-blur-md"
@@ -33,12 +65,6 @@ export default function Header({ theme, onToggleTheme, developer }: Props) {
             >
               DevPulse
             </span>
-            <span
-              className="ml-2 text-xs px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}
-            >
-              v1.0 MVP
-            </span>
           </div>
         </div>
 
@@ -47,13 +73,36 @@ export default function Header({ theme, onToggleTheme, developer }: Props) {
           className="hidden md:flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg"
           style={{ backgroundColor: 'var(--bg-surface-2)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}
         >
-          <span>📅</span>
-          <span>Apr 1 – Apr 30, 2024</span>
+          <span 
+            className="text-xs font-medium px-2.5 py-0.5 rounded-md mr-1 transition-colors"
+            style={{ 
+              backgroundColor: theme === 'light' ? '#fef3c7' : '#451a03', 
+              color: theme === 'light' ? '#b45309' : '#fbbf24', 
+              fontFamily: 'sans-serif' 
+            }}
+          >
+            {mounted ? currentTime.toLocaleString('en-US', { month: 'short', day: 'numeric' }) : '...'}
+          </span>
+          <input 
+            type="date" 
+            value={startDate}
+            onChange={(e) => onStartDateChange(e.target.value)}
+            className="bg-transparent border-none outline-none focus:ring-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+            style={{ color: 'var(--text-secondary)' }}
+          />
+          <span>–</span>
+          <input 
+            type="date" 
+            value={endDate}
+            onChange={(e) => onEndDateChange(e.target.value)}
+            className="bg-transparent border-none outline-none focus:ring-0 cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100"
+            style={{ color: 'var(--text-secondary)' }}
+          />
           <span
             className="ml-1 text-xs px-1.5 py-0.5 rounded"
             style={{ backgroundColor: 'var(--accent-green-light)', color: 'var(--accent-green)' }}
           >
-            30d
+            {daysDifference}d
           </span>
         </div>
 
